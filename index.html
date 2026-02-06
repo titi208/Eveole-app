@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Évéole App</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#E2007A">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="static/icon.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        :root { --bg-body: #f8f9fa; --bg-panel: #ffffff; --text-main: #2c3e50; --border: #e2e8f0; --primary: #E2007A; }
+        body.dark-mode { --bg-body: #0f172a; --bg-panel: rgba(15, 23, 42, 0.95); --text-main: #f8fafc; --border: rgba(255,255,255,0.1); --primary: #3b82f6; }
+        body { margin: 0; font-family: 'Roboto', sans-serif; overflow: hidden; background: var(--bg-body); color: var(--text-main); overscroll-behavior-y: none; }
+        #map { flex-grow: 1; height: 100%; z-index: 1; }
+        #wrapper { display: flex; height: 100vh; }
+        #sidebar { width: 360px; background: var(--bg-panel); z-index: 1000; display: flex; flex-direction: column; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border-right: 1px solid var(--border); }
+        
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .theme-btn { background: transparent; border: 1px solid var(--border); border-radius: 50%; width: 36px; height: 36px; cursor: pointer; color: var(--text-main); }
+        .scrollable-list { overflow-y: auto; flex-grow: 1; padding-right: 5px; }
+        .line-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+        .line-item.inactive { opacity: 0.5; filter: grayscale(1); }
+        .line-badge { min-width: 45px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; margin-right: 12px; color: white; }
+        
+        .bus-marker-container { transition: all 1s linear; z-index: 1000; }
+        .bus-solid { width: 34px; height: 34px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: white; opacity: 1 !important; }
+        .bus-solid::after { content: ''; position: absolute; bottom: -6px; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 7px solid white; }
+        .stop-icon-div { background: white; border-radius: 50%; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 2px solid #007bff; color: #007bff; font-size: 10px; }
+
+        #right-panel { position: absolute; top: 20px; right: 20px; width: 320px; background: var(--bg-panel); z-index: 1001; border-radius: 12px; transform: translateX(120%); transition: transform 0.3s; display: flex; flex-direction: column; max-height: 80vh; border: 1px solid var(--border); }
+        #right-panel.open { transform: translateX(0); }
+        .rp-header { background: var(--primary); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0; }
+        @media (max-width: 768px) { #wrapper { flex-direction: column-reverse; } #sidebar { width: 100%; height: 50%; border-right: none; } #right-panel { top: auto; bottom: 0; left: 0; right: 0; width: 100%; max-height: 70vh; transform: translateY(120%); border-radius: 20px 20px 0 0; } #right-panel.open { transform: translateY(0); } }
+        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s; }
+        #loader.hidden { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div id="loader"><div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div><div class="mt-2 fw-bold">Chargement...</div></div>
+
+<div id="wrapper">
+    <div id="sidebar">
+        <div style="flex-shrink: 0;">
+            <div class="header-row">
+                <div><h3 style="margin:0; font-weight:800;">Évéole <span style="color:var(--primary)">App</span></h3><small id="clock" style="font-weight:bold; color:gray;">--:--:--</small></div>
+                <button class="theme-btn" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
+            </div>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <button class="btn btn-sm btn-light flex-grow-1 border active" id="btn-lines" onclick="switchTab('filters')">Lignes</button>
+                <button class="btn btn-sm btn-light flex-grow-1 border" id="btn-route" onclick="switchTab('route')">Trajet</button>
+            </div>
+        </div>
+        <div id="tab-filters" style="display:flex; flex-direction:column; flex-grow:1; overflow:hidden;">
+            <div style="flex-shrink: 0; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
+                <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-sm btn-dark flex-grow-1" onclick="setAllLines(true)">Tout cocher</button>
+                    <button class="btn btn-sm btn-outline-dark flex-grow-1" onclick="setAllLines(false)">Tout décocher</button>
+                </div>
+                <div class="form-check form-switch p-2 border rounded bg-light d-flex justify-content-between align-items-center">
+                    <label class="form-check-label small fw-bold" for="showStopsCheck">Afficher les arrêts</label>
+                    <input class="form-check-input" type="checkbox" id="showStopsCheck" onchange="refreshStops()">
+                </div>
+            </div>
+            <div id="lines-list" class="scrollable-list"></div>
+        </div>
+        <div id="tab-route" style="display:none; flex-direction:column; flex-grow:1;">
+            <div class="p-3 rounded mb-3 bg-light border">
+                <input type="text" id="start-stop" class="form-control mb-2" list="stops-datalist" placeholder="Départ...">
+                <input type="text" id="end-stop" class="form-control mb-2" list="stops-datalist" placeholder="Arrivée...">
+                <button onclick="searchRoute()" class="btn btn-primary w-100 fw-bold">Rechercher</button>
+            </div>
+            <div id="route-results" class="scrollable-list"></div>
+        </div>
+    </div>
+    <div id="map"></div>
+    <div id="right-panel">
+        <div class="rp-header">
+            <strong id="rp-title">Info</strong>
+            <button onclick="closeRightPanel()" class="btn btn-sm text-white"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="rp-content" class="scrollable-list"><ul id="detail-list" class="list-group list-group-flush small"></ul></div>
+    </div>
+</div>
+<datalist id="stops-datalist"></datalist>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.6.0/leaflet.polylineDecorator.js"></script>
+
+<script>
+    let DB = null;
+    const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom: 19});
+    const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {maxZoom: 19});
+    const map = L.map('map', {zoomControl: false, layers: [lightTiles]}).setView([50.3705, 3.0900], 13);
+    L.control.zoom({position: 'topleft'}).addTo(map);
+
+    let busMarkers = {};
+    let stopLayer = L.layerGroup().addTo(map);
+    let currentPathLine = null, currentPathDecorator = null;
+    let visibleLines = new Set();
+    let followedBusId = null;
+    let isDarkMode = false;
+
+    async function initApp() {
+        try {
+            const response = await fetch('static/db.json');
+            DB = await response.json();
+            
+            const div = document.getElementById('lines-list');
+            div.innerHTML = "";
+            Object.values(DB.routes).forEach(r => {
+                const color = "#" + r.c;
+                div.innerHTML += `
+                <div class="line-item inactive" id="line-${r.n}" onclick="toggleLine('${r.n}')">
+                    <div class="line-badge" style="background:${color}; color:#${r.tc}">${r.n}</div>
+                    <div class="text-truncate small fw-bold text-secondary">${r.l}</div>
+                </div>`;
+            });
+
+            const dl = document.getElementById('stops-datalist');
+            Object.values(DB.stops).forEach(s => { let o = document.createElement('option'); o.value = s.n; dl.appendChild(o); });
+
+            document.getElementById('loader').classList.add('hidden');
+            setInterval(updateBusPositions, 1000);
+            setInterval(() => { const now=new Date(); document.getElementById('clock').innerText=now.toLocaleTimeString('fr-FR'); }, 1000);
+
+        } catch(e) { console.error("Erreur:", e); }
+    }
+
+    function getParisSeconds() {
+        const now = new Date();
+        const parisTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+        return parisTime.getHours() * 3600 + parisTime.getMinutes() * 60 + parisTime.getSeconds();
+    }
+
+    function isServiceActive(serviceId) {
+        const cal = DB.calendar[serviceId];
+        if(!cal) return false;
+        const now = new Date();
+        const parisDate = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+        const todayInt = parseInt(parisDate.getFullYear() + String(parisDate.getMonth()+1).padStart(2,'0') + String(parisDate.getDate()).padStart(2,'0'));
+        if(todayInt < cal.start || todayInt > cal.end) return false;
+        let dayIndex = parisDate.getDay() - 1;
+        if(dayIndex === -1) dayIndex = 6;
+        return cal.days[dayIndex] === 1;
+    }
+
+    function updateBusPositions() {
+        if(!DB) return;
+        const curr = getParisSeconds();
+        const activeBuses = [];
+
+        DB.trips.forEach(trip => {
+            const rName = DB.routes[trip.rid].n;
+            if(!visibleLines.has(rName) || !isServiceActive(trip.sid)) return;
+
+            const stops = trip.sch;
+            if(curr >= stops[0][2] && curr <= stops[stops.length-1][1]) {
+                let prev = null, next = null;
+                for(let i=0; i<stops.length-1; i++) {
+                    if(curr >= stops[i][2] && curr <= stops[i+1][1]) { prev = stops[i]; next = stops[i+1]; break; }
+                }
+
+                if(prev && next) {
+                    const pStop = DB.stops[prev[0]], nStop = DB.stops[next[0]];
+                    const pct = (next[1] - prev[2]) > 0 ? (curr - prev[2]) / (next[1] - prev[2]) : 0;
+                    const lat = pStop.lat + (nStop.lat - pStop.lat) * pct;
+                    const lon = pStop.lon + (nStop.lon - pStop.lon) * pct;
+                    
+                    const rData = DB.routes[trip.rid];
+                    updateMarker(trip.id, lat, lon, rName, trip.head, rData.c, rData.tc);
+                    activeBuses.push(trip.id);
+                }
+            }
+        });
+
+        for(let id in busMarkers) { if(!activeBuses.includes(id)) { map.removeLayer(busMarkers[id]); delete busMarkers[id]; } }
+    }
+
+    function updateMarker(id, lat, lon, line, dest, colorHex, textHex) {
+        if(busMarkers[id]) { busMarkers[id].setLatLng([lat, lon]); } else {
+            const color = "#" + colorHex;
+            const text = "#" + textHex;
+            const icon = L.divIcon({ className: 'bus-marker-container', html: `<div class="bus-solid" style="background:${color}; color:${text}">${line}</div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
+            const m = L.marker([lat, lon], {icon: icon}).addTo(map);
+            m.on('click', () => openBusPanel(id, line, dest, color));
+            busMarkers[id] = m;
+        }
+        if(id === followedBusId) map.panTo([lat, lon]);
+    }
+
+    function openBusPanel(id, line, dest, color) {
+        followedBusId = id;
+        document.getElementById('rp-title').innerText = `Ligne ${line}`;
+        document.getElementById('right-panel').classList.add('open');
+        if(currentPathLine) map.removeLayer(currentPathLine);
+        if(currentPathDecorator) map.removeLayer(currentPathDecorator);
+
+        const trip = DB.trips.find(t => t.id === id);
+        if(trip) {
+            const coords = trip.sch.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+            currentPathLine = L.polyline(coords, {color: color, weight: 5, opacity: 0.8}).addTo(map);
+            currentPathDecorator = L.polylineDecorator(currentPathLine, { patterns: [{ offset: '25px', repeat: '150px', symbol: L.Symbol.arrowHead({pixelSize: 12, polygon: false, pathOptions: {stroke: true, color: 'white', weight: 3}}) }] }).addTo(map);
+            map.fitBounds(currentPathLine.getBounds(), {padding:[50,50]});
+
+            const list = document.getElementById('detail-list');
+            list.innerHTML = `<li class="list-group-item fw-bold text-center bg-light">Vers : ${dest}</li>`;
+            const curr = getParisSeconds();
+            trip.sch.forEach(s => {
+                const stopInfo = DB.stops[s[0]];
+                const timeStr = new Date(s[1] * 1000).toISOString().substr(11, 5);
+                const isPast = s[1] < curr;
+                list.innerHTML += `<li class="list-group-item d-flex justify-content-between" style="${isPast?'opacity:0.5; text-decoration:line-through;':''}"><span>${stopInfo.n}</span> <strong>${timeStr}</strong></li>`;
+            });
+        }
+    }
+
+    function refreshStops() {
+        stopLayer.clearLayers();
+        if(!document.getElementById('showStopsCheck').checked) return;
+        Object.values(DB.stops).forEach(s => {
+            const icon = L.divIcon({ className: 'custom-stop', html: `<div class="stop-icon-div"><i class="fas fa-bus"></i></div>`, iconSize: [22, 22], iconAnchor: [11, 11] });
+            L.marker([s.lat, s.lon], {icon: icon}).addTo(stopLayer);
+        });
+    }
+
+    window.toggleTheme = function() { isDarkMode = !isDarkMode; if(isDarkMode) { document.body.classList.add('dark-mode'); map.removeLayer(lightTiles); map.addLayer(darkTiles); } else { document.body.classList.remove('dark-mode'); map.removeLayer(darkTiles); map.addLayer(lightTiles); } }
+    window.switchTab = function(t) { document.getElementById('tab-filters').style.display = t==='filters'?'flex':'none'; document.getElementById('tab-route').style.display = t==='route'?'flex':'none'; document.getElementById('btn-lines').classList.toggle('active', t==='filters'); document.getElementById('btn-route').classList.toggle('active', t==='route'); }
+    window.closeRightPanel = function() { document.getElementById('right-panel').classList.remove('open'); if(currentPathLine) map.removeLayer(currentPathLine); if(currentPathDecorator) map.removeLayer(currentPathDecorator); followedBusId=null; }
+    window.toggleLine = function(id) { const el=document.getElementById(`line-${id}`); if(visibleLines.has(id)){ visibleLines.delete(id); el.classList.add('inactive'); }else{ visibleLines.add(id); el.classList.remove('inactive'); } updateBusPositions(); }
+    window.setAllLines = function(e) { document.querySelectorAll('.line-item').forEach(el => { const id=el.id.replace('line-',''); if(e){ visibleLines.add(id); el.classList.remove('inactive'); }else{ visibleLines.delete(id); el.classList.add('inactive'); } }); updateBusPositions(); }
+    
+    // PWA START
+    if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); }); }
+    
+    initApp();
+</script>
+</body>
+</html>

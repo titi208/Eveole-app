@@ -1,0 +1,17 @@
+{
+  "name": "Évéole Live",
+  "short_name": "Évéole",
+  "start_url": "/Eveole-app/index.html",
+  "scope": "/Eveole-app/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#E2007A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "static/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
