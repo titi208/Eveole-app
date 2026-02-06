@@ -19,24 +19,24 @@
         :root { --primary: #E2007A; --bg: #f8f9fa; --surface: #ffffff; --text: #1e293b; --nav-height: 70px; }
         body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
-        /* CARTE ET VUES */
+        /* VUES */
         #view-container { flex-grow: 1; position: relative; overflow: hidden; }
         .view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; background: var(--bg); }
         .view.active { display: flex; }
         #map { width: 100%; height: 100%; z-index: 1; }
 
-        /* NAVIGATION BAR (BAS) */
+        /* NAV BAS */
         #bottom-nav { height: var(--nav-height); background: var(--surface); border-top: 1px solid #e2e8f0; display: flex; justify-content: space-around; align-items: center; z-index: 2000; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); }
         .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 11px; font-weight: 600; text-decoration: none; width: 100%; height: 100%; background: none; border: none; }
         .nav-item i { font-size: 20px; margin-bottom: 4px; }
         .nav-item.active { color: var(--primary); }
 
-        /* CONTROLES FLOTTANTS (CARTE) */
+        /* CONTROLES MAP */
         .map-controls { position: absolute; top: 15px; right: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
         .control-btn { width: 44px; height: 44px; background: white; border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); color: var(--text); font-size: 18px; display: flex; align-items: center; justify-content: center; }
         .control-btn.active { background: var(--primary); color: white; }
 
-        /* SHEET (PANNEAU DETAILS) */
+        /* PANNEAU DETAILS (SHEET) */
         #sheet { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--surface); border-radius: 20px 20px 0 0; box-shadow: 0 -5px 30px rgba(0,0,0,0.2); transform: translateY(110%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 3000; max-height: 80vh; display: flex; flex-direction: column; }
         #sheet.open { transform: translateY(0); }
         .sheet-handle { width: 40px; height: 5px; background: #cbd5e1; border-radius: 10px; margin: 12px auto; flex-shrink: 0; }
@@ -44,31 +44,40 @@
         .sheet-content { overflow-y: auto; padding: 0; flex-grow: 1; overscroll-behavior: contain; }
         .sheet-close { position: absolute; top: 15px; right: 15px; background: #f1f5f9; border: none; width: 30px; height: 30px; border-radius: 50%; color: #64748b; }
 
-        /* LISTE LIGNES (FILTRE) */
+        /* FILTRE LIGNES */
         #lines-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.98); z-index: 1500; padding: 20px; display: none; flex-direction: column; }
         #lines-panel.show { display: flex; }
         .lines-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; overflow-y: auto; padding-bottom: 80px; }
         .line-chip { border: 2px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; transition: all 0.2s; opacity: 0.6; filter: grayscale(1); }
         .line-chip.active { border-color: var(--primary); opacity: 1; filter: none; background: #fff0f7; }
         .line-num { display: block; font-weight: 800; font-size: 16px; margin-bottom: 2px; }
-        
+
         /* ITINERAIRE */
         .route-form { background: white; padding: 20px; border-radius: 0 0 20px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .route-card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
         .route-timeline { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 15px; padding-bottom: 20px; position: relative; }
         .route-timeline::before { content: ''; position: absolute; left: -6px; top: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
-        .route-timeline:last-child { border-left: none; padding-bottom: 0; }
 
         /* MARKERS */
         .bus-marker { width: 34px; height: 34px; border-radius: 50%; border: 2px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 12px; }
         .bus-marker::after { content:''; position: absolute; bottom: -5px; border-top: 6px solid white; border-left: 5px solid transparent; border-right: 5px solid transparent; }
-        .stop-dot { width: 12px; height: 12px; background: white; border: 2px solid #64748b; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        
+        /* ANCIEN LOGO ARRET (Bus Bleu) */
+        .stop-icon-div { 
+            background: white; border-radius: 50%; width: 22px; height: 22px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 2px solid #007bff;
+            color: #007bff; font-size: 10px;
+        }
+
+        /* ICONS DEPART / ARRIVEE */
+        .marker-start { color: #27ae60; font-size: 24px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+        .marker-end { color: #c0392b; font-size: 24px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
     </style>
 </head>
 <body>
 
 <div id="view-container">
-    
     <div id="view-map" class="view active">
         <div class="map-controls">
             <button class="control-btn" onclick="toggleLinesPanel()"><i class="fas fa-filter"></i></button>
@@ -76,7 +85,6 @@
             <button class="control-btn" onclick="locateUser()"><i class="fas fa-location-arrow"></i></button>
         </div>
         <div id="map"></div>
-        
         <div id="lines-panel">
             <h4 class="mb-3 fw-bold">Filtrer les lignes</h4>
             <div class="d-flex gap-2 mb-3">
@@ -102,12 +110,8 @@
 </div>
 
 <nav id="bottom-nav">
-    <button class="nav-item active" onclick="changeView('map')">
-        <i class="fas fa-map"></i> Carte
-    </button>
-    <button class="nav-item" onclick="changeView('route')">
-        <i class="fas fa-route"></i> Itinéraire
-    </button>
+    <button class="nav-item active" onclick="changeView('map')"><i class="fas fa-map"></i> Carte</button>
+    <button class="nav-item" onclick="changeView('route')"><i class="fas fa-route"></i> Itinéraire</button>
 </nav>
 
 <div id="sheet">
@@ -125,7 +129,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // --- CONFIG & STATE ---
     let DB = null;
     let map = L.map('map', {zoomControl: false}).setView([50.3705, 3.0900], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom: 19}).addTo(map);
@@ -133,46 +136,40 @@
     let state = {
         visibleLines: new Set(),
         showStops: false,
-        markers: {}, // Bus markers
+        markers: {}, 
         stopMarkers: L.layerGroup(),
         routeLine: null,
-        followedBus: null
+        startMarker: null,
+        endMarker: null,
+        tripLine: null // Ligne du bus sélectionné
     };
 
-    // --- INITIALISATION ---
     async function init() {
         try {
             const r = await fetch('static/db.json');
             DB = await r.json();
             
-            // Remplir la grille de filtres
             const grid = document.getElementById('lines-grid');
             Object.keys(DB.routes).forEach(rid => {
                 const route = DB.routes[rid];
                 const el = document.createElement('div');
                 el.className = 'line-chip';
                 el.innerHTML = `<span class="line-num" style="color:#${route.tc}">${route.n}</span>`;
-                el.style.backgroundColor = "#" + route.c; // Background couleur ligne
+                el.style.backgroundColor = "#" + route.c;
                 el.onclick = () => toggleLineFilter(rid, el);
                 el.id = `filter-${rid}`;
                 grid.appendChild(el);
             });
 
-            // Datalist pour recherche
             const dl = document.getElementById('stops-list');
             Object.values(DB.stops).forEach(s => {
-                let opt = document.createElement('option');
-                opt.value = s.n;
-                dl.appendChild(opt);
+                let opt = document.createElement('option'); opt.value = s.n; dl.appendChild(opt);
             });
 
-            // Démarrer la boucle temps réel
             setInterval(updateLoop, 1000);
-
-        } catch(e) { alert("Erreur chargement données"); console.error(e); }
+        } catch(e) { console.error(e); }
     }
 
-    // --- LOGIQUE METIER ---
     function getParisTime() {
         const d = new Date();
         const paris = new Date(d.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
@@ -186,8 +183,7 @@
         const paris = new Date(d.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
         const ymd = parseInt(paris.getFullYear() + String(paris.getMonth()+1).padStart(2,'0') + String(paris.getDate()).padStart(2,'0'));
         if(ymd < cal.s || ymd > cal.e) return false;
-        let day = paris.getDay() - 1; 
-        if(day === -1) day = 6;
+        let day = paris.getDay() - 1; if(day === -1) day = 6;
         return cal.d[day] === 1;
     }
 
@@ -196,34 +192,24 @@
         const now = getParisTime();
         const activeIds = [];
 
-        // 1. Calcul position des bus
         DB.trips.forEach(trip => {
             if(!state.visibleLines.has(trip.rid)) return;
             if(!isTripActive(trip)) return;
 
             const stops = trip.sch;
-            // trip.sch = [[stop_id, arr_sec], ...]
             const first = stops[0][1];
             const last = stops[stops.length-1][1];
 
             if(now >= first && now <= last) {
-                // Bus en circulation
                 let pIdx = -1;
                 for(let i=0; i<stops.length-1; i++) {
                     if(now >= stops[i][1] && now <= stops[i+1][1]) { pIdx = i; break; }
                 }
 
                 if(pIdx !== -1) {
-                    const prev = stops[pIdx];
-                    const next = stops[pIdx+1];
-                    const pStop = DB.stops[prev[0]];
-                    const nStop = DB.stops[next[0]];
-                    
-                    // Interpolation
-                    const duration = next[1] - prev[1];
-                    const elapsed = now - prev[1];
-                    const pct = duration > 0 ? elapsed / duration : 0;
-                    
+                    const prev = stops[pIdx], next = stops[pIdx+1];
+                    const pStop = DB.stops[prev[0]], nStop = DB.stops[next[0]];
+                    const pct = (now - prev[1]) / (next[1] - prev[1]);
                     const lat = pStop.lat + (nStop.lat - pStop.lat) * pct;
                     const lon = pStop.lon + (nStop.lon - pStop.lon) * pct;
 
@@ -233,12 +219,8 @@
             }
         });
 
-        // Nettoyage
         Object.keys(state.markers).forEach(tid => {
-            if(!activeIds.includes(tid)) {
-                map.removeLayer(state.markers[tid]);
-                delete state.markers[tid];
-            }
+            if(!activeIds.includes(tid)) { map.removeLayer(state.markers[tid]); delete state.markers[tid]; }
         });
     }
 
@@ -258,28 +240,23 @@
         }
     }
 
-    // --- AFFICHAGE ARRETS INTELLIGENT ---
     function renderStops() {
         state.stopMarkers.clearLayers();
-        if(!state.showStops) {
-            document.getElementById('btn-stops').classList.remove('active');
-            return;
-        }
+        if(!state.showStops) { document.getElementById('btn-stops').classList.remove('active'); return; }
         document.getElementById('btn-stops').classList.add('active');
 
-        // On n'affiche que les arrêts des lignes visibles !
         const stopsToShow = new Set();
         state.visibleLines.forEach(rid => {
-            const routeStops = DB.routes[rid].stops || [];
-            routeStops.forEach(sid => stopsToShow.add(sid));
+            (DB.routes[rid].stops || []).forEach(sid => stopsToShow.add(sid));
         });
 
         stopsToShow.forEach(sid => {
             const s = DB.stops[sid];
+            // RESTAURATION ANCIEN LOGO
             const icon = L.divIcon({
-                className: 'custom-dot',
-                html: '<div class="stop-dot"></div>',
-                iconSize: [12,12], iconAnchor: [6,6]
+                className: 'custom-stop',
+                html: `<div class="stop-icon-div"><i class="fas fa-bus"></i></div>`,
+                iconSize: [22,22], iconAnchor: [11,11]
             });
             const m = L.marker([s.lat, s.lon], {icon: icon});
             m.on('click', () => showStopDetails(sid));
@@ -288,172 +265,147 @@
         state.stopMarkers.addTo(map);
     }
 
-    // --- RECHERCHE ITINERAIRE (SEGMENT UTILE) ---
+    function showItineraryOnMap(item) {
+        changeView('map');
+        closeSheet();
+        if(state.routeLine) map.removeLayer(state.routeLine);
+        if(state.startMarker) map.removeLayer(state.startMarker);
+        if(state.endMarker) map.removeLayer(state.endMarker);
+
+        const segmentStops = item.trip.sch.slice(item.idxS, item.idxE + 1);
+        const latlngs = segmentStops.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+
+        state.routeLine = L.polyline(latlngs, {color: '#2ecc71', weight: 6}).addTo(map);
+        map.fitBounds(state.routeLine.getBounds(), {padding: [50,50]});
+
+        // MARKERS DEPART / ARRIVEE
+        const startLL = latlngs[0];
+        const endLL = latlngs[latlngs.length-1];
+
+        state.startMarker = L.marker(startLL, {
+            icon: L.divIcon({className:'x', html:'<i class="fas fa-play-circle marker-start"></i>', iconSize:[24,24], iconAnchor:[12,12]})
+        }).addTo(map);
+
+        state.endMarker = L.marker(endLL, {
+            icon: L.divIcon({className:'x', html:'<i class="fas fa-flag-checkered marker-end"></i>', iconSize:[24,24], iconAnchor:[2,22]})
+        }).addTo(map);
+        
+        if(!state.visibleLines.has(item.trip.rid)) {
+            toggleLineFilter(item.trip.rid, document.getElementById(`filter-${item.trip.rid}`));
+        }
+    }
+
+    function showTripDetails(trip) {
+        // TRACER LA LIGNE DU BUS SUR LA CARTE
+        if(state.tripLine) map.removeLayer(state.tripLine);
+        
+        // Récupérer toutes les coordonnées du trip
+        const coords = trip.sch.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+        const r = DB.routes[trip.rid];
+        
+        // Tracer ligne bleu/couleur ligne
+        state.tripLine = L.polyline(coords, {color: `#${r.c}`, weight: 4, opacity: 0.8, dashArray: '10, 10'}).addTo(map);
+        
+        // Afficher panneau details
+        showTripDetailsId(trip.id);
+    }
+
+    // --- LE REST DU CODE RESTE IDENTIQUE ---
     function searchItinerary() {
         const sName = document.getElementById('start-input').value.toLowerCase();
         const eName = document.getElementById('end-input').value.toLowerCase();
         const resDiv = document.getElementById('route-results');
         resDiv.innerHTML = "";
-
-        // Trouver les IDs des arrêts
         let sIds = [], eIds = [];
         Object.keys(DB.stops).forEach(sid => {
             const n = DB.stops[sid].n.toLowerCase();
             if(n === sName) sIds.push(sid);
             if(n === eName) eIds.push(sid);
         });
-
         if(!sIds.length || !eIds.length) { resDiv.innerHTML = "<div class='text-center mt-3'>Arrêts introuvables</div>"; return; }
-
         const now = getParisTime();
         const results = [];
-
-        // Chercher les trajets qui passent par Start puis End
         DB.trips.forEach(trip => {
             if(!isTripActive(trip)) return;
-            // On ne cherche que les bus futurs (prochaines 2h)
-            
-            // Trouver index start et end dans ce trip
             let idxS = -1, idxE = -1;
             trip.sch.forEach((stop, i) => {
                 if(sIds.includes(stop[0])) idxS = i;
-                if(eIds.includes(stop[0]) && idxS !== -1) idxE = i; // End doit être APRES Start
+                if(eIds.includes(stop[0]) && idxS !== -1) idxE = i;
             });
-
             if(idxS !== -1 && idxE !== -1 && idxE > idxS) {
                 const depTime = trip.sch[idxS][1];
-                if(depTime > now && depTime < now + 7200) {
-                    results.push({ trip, idxS, idxE, depTime });
-                }
+                if(depTime > now && depTime < now + 7200) results.push({ trip, idxS, idxE, depTime });
             }
         });
-
         results.sort((a,b) => a.depTime - b.depTime);
-        const uniqueRes = results.slice(0, 10); // Top 10
-
+        const uniqueRes = results.slice(0, 10);
         if(uniqueRes.length === 0) { resDiv.innerHTML = "<div class='text-center mt-3'>Aucun bus trouvé prochainement.</div>"; return; }
-
         uniqueRes.forEach(item => {
             const r = DB.routes[item.trip.rid];
             const arrTime = item.trip.sch[item.idxE][1];
             const depStr = new Date(item.depTime * 1000).toISOString().substr(11,5);
             const arrStr = new Date(arrTime * 1000).toISOString().substr(11,5);
-
             const card = document.createElement('div');
             card.className = "route-card";
-            card.innerHTML = `
-                <div>
-                    <span class="badge" style="background:#${r.c}; color:#${r.tc}">${r.n}</span>
-                    <strong class="ms-2">Vers ${item.trip.head}</strong>
-                    <div class="small text-muted mt-1">Départ ${depStr} &rarr; Arrivée ${arrStr}</div>
-                </div>
-                <i class="fas fa-chevron-right text-muted"></i>
-            `;
+            card.innerHTML = `<div><span class="badge" style="background:#${r.c}; color:#${r.tc}">${r.n}</span><strong class="ms-2">Vers ${item.trip.head}</strong><div class="small text-muted mt-1">Départ ${depStr} &rarr; Arrivée ${arrStr}</div></div><i class="fas fa-chevron-right text-muted"></i>`;
             card.onclick = () => showItineraryOnMap(item);
             resDiv.appendChild(card);
         });
     }
 
-    function showItineraryOnMap(item) {
-        changeView('map');
-        closeSheet();
-        if(state.routeLine) map.removeLayer(state.routeLine);
-
-        // Extraire UNIQUEMENT le segment entre Start et End
-        const segmentStops = item.trip.sch.slice(item.idxS, item.idxE + 1);
-        const latlngs = segmentStops.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
-
-        const r = DB.routes[item.trip.rid];
-        state.routeLine = L.polyline(latlngs, {color: '#2ecc71', weight: 6}).addTo(map); // Vert = Trajet utile
-        map.fitBounds(state.routeLine.getBounds(), {padding: [50,50]});
-        
-        // Cocher la ligne pour voir le bus
-        if(!state.visibleLines.has(item.trip.rid)) {
-            toggleLineFilter(item.trip.rid, document.getElementById(`filter-${item.trip.rid}`));
-        }
-    }
-
-    // --- DETAILS (SHEET) ---
     function showStopDetails(sid) {
         const s = DB.stops[sid];
         document.getElementById('sheet-title').innerText = s.n;
         document.getElementById('sheet-subtitle').innerText = "Prochains passages";
         const content = document.getElementById('sheet-content');
         content.innerHTML = "<ul class='list-group list-group-flush'>";
-
         const now = getParisTime();
         const passages = [];
-
         DB.trips.forEach(trip => {
             if(!isTripActive(trip)) return;
-            // Est-ce que ce bus passe ici plus tard ?
             trip.sch.forEach(stop => {
-                if(stop[0] === sid && stop[1] > now && stop[1] < now + 3600) {
-                    passages.push({ t: stop[1], trip });
-                }
+                if(stop[0] === sid && stop[1] > now && stop[1] < now + 3600) passages.push({ t: stop[1], trip });
             });
         });
-
         passages.sort((a,b) => a.t - b.t);
-
         if(passages.length === 0) content.innerHTML += "<li class='list-group-item text-muted'>Aucun passage dans l'heure.</li>";
-
         passages.slice(0, 10).forEach(p => {
             const r = DB.routes[p.trip.rid];
             const time = new Date(p.t * 1000).toISOString().substr(11,5);
             const wait = Math.floor((p.t - now)/60);
-            content.innerHTML += `
-                <li class="list-group-item d-flex justify-content-between align-items-center" onclick="showTripDetailsId('${p.trip.id}')">
-                    <div>
-                        <span class="badge me-2" style="background:#${r.c}; color:#${r.tc}">${r.n}</span>
-                        <span class="small fw-bold">${p.trip.head}</span>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-bold">${time}</div>
-                        <div class="small text-muted">${wait} min</div>
-                    </div>
-                </li>
-            `;
+            content.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center" onclick="showTripDetailsId('${p.trip.id}')"><div><span class="badge me-2" style="background:#${r.c}; color:#${r.tc}">${r.n}</span><span class="small fw-bold">${p.trip.head}</span></div><div class="text-end"><div class="fw-bold">${time}</div><div class="small text-muted">${wait} min</div></div></li>`;
         });
         content.innerHTML += "</ul>";
         openSheet();
     }
 
-    function showTripDetails(trip) {
-        showTripDetailsId(trip.id);
-    }
-    
     function showTripDetailsId(tid) {
         const trip = DB.trips.find(t => t.id === tid);
         if(!trip) return;
         const r = DB.routes[trip.rid];
-        
         document.getElementById('sheet-title').innerText = `Ligne ${r.n}`;
         document.getElementById('sheet-subtitle').innerText = `Vers ${trip.head}`;
         const content = document.getElementById('sheet-content');
         content.innerHTML = "<div class='route-timeline mt-3'>";
-        
         const now = getParisTime();
         trip.sch.forEach(stop => {
             const sName = DB.stops[stop[0]].n;
             const time = new Date(stop[1] * 1000).toISOString().substr(11,5);
             const isPast = stop[1] < now;
             const style = isPast ? 'opacity:0.5' : 'font-weight:bold';
-            
-            content.innerHTML += `
-                <div class="mb-3 ms-3" style="${style}">
-                    <div>${time}</div>
-                    <div class="small">${sName}</div>
-                </div>
-            `;
+            content.innerHTML += `<div class="mb-3 ms-3" style="${style}"><div>${time}</div><div class="small">${sName}</div></div>`;
         });
         content.innerHTML += "</div>";
         openSheet();
+        
+        // Trace line if opened from list
+        if(state.tripLine) map.removeLayer(state.tripLine);
+        const coords = trip.sch.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+        state.tripLine = L.polyline(coords, {color: `#${r.c}`, weight: 4, opacity: 0.8, dashArray: '10, 10'}).addTo(map);
     }
 
-    // --- UI HELPERS ---
     function openSheet() { document.getElementById('sheet').classList.add('open'); }
-    function closeSheet() { document.getElementById('sheet').classList.remove('open'); }
+    function closeSheet() { document.getElementById('sheet').classList.remove('open'); if(state.tripLine) { map.removeLayer(state.tripLine); state.tripLine=null; } }
     function changeView(v) {
         document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
         document.getElementById('view-'+v).classList.add('active');
@@ -466,7 +418,7 @@
     function toggleLineFilter(rid, el) {
         if(state.visibleLines.has(rid)) { state.visibleLines.delete(rid); el.classList.remove('active'); }
         else { state.visibleLines.add(rid); el.classList.add('active'); }
-        renderStops(); // Re-render stops to match filter
+        renderStops();
     }
     function selectAllLines(all) {
         document.querySelectorAll('.line-chip').forEach(el => {
@@ -478,15 +430,10 @@
     }
     function locateUser() {
         map.locate({setView: true, maxZoom: 15});
-        map.on('locationfound', e => {
-            L.circle(e.latlng, {radius: 20, color: 'blue'}).addTo(map);
-        });
+        map.on('locationfound', e => { L.circle(e.latlng, {radius: 20, color: 'blue'}).addTo(map); });
     }
-
-    // PWA
     if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     init();
-
 </script>
 </body>
 </html>
