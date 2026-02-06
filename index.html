@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Évéole App</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="static/icon.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        :root { --primary: #E2007A; --bg: #f8f9fa; --surface: #ffffff; --text: #1e293b; --nav-height: 70px; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        
+        #view-container { flex-grow: 1; position: relative; overflow: hidden; }
+        .view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; background: var(--bg); }
+        .view.active { display: flex; }
+        #map { width: 100%; height: 100%; z-index: 1; }
+
+        #bottom-nav { height: var(--nav-height); background: var(--surface); border-top: 1px solid #e2e8f0; display: flex; justify-content: space-around; align-items: center; z-index: 2000; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 11px; font-weight: 600; text-decoration: none; width: 100%; height: 100%; background: none; border: none; }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; }
+        .nav-item.active { color: var(--primary); }
+
+        .map-controls { position: absolute; top: 15px; right: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+        .control-btn { width: 44px; height: 44px; background: white; border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); color: var(--text); font-size: 18px; display: flex; align-items: center; justify-content: center; }
+        .control-btn.active { background: var(--primary); color: white; }
+
+        /* PANNEAU BOTTOM SHEET (Modifié pour le swipe) */
+        #sheet { 
+            position: fixed; left: 0; right: 0; bottom: 0;
+            background: var(--surface); 
+            border-radius: 20px 20px 0 0; 
+            box-shadow: 0 -5px 30px rgba(0,0,0,0.2); 
+            z-index: 3000; 
+            display: flex; flex-direction: column;
+            transform: translateY(100%); /* Caché par défaut */
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            height: 80vh; /* Hauteur max */
+            touch-action: none; /* Important pour le drag */
+        }
+        
+        /* Classes de position gérées par JS */
+        #sheet.open { transform: translateY(0); } /* Pleine hauteur */
+        #sheet.peek { transform: translateY(calc(100% - 140px)); } /* Juste le header visible */
+        #sheet.hidden { transform: translateY(105%); } /* Caché */
+
+        /* Zone de drag agrandie pour être facile à attraper */
+        .sheet-drag-area { padding-top: 10px; padding-bottom: 5px; cursor: grab; background: transparent; }
+        .sheet-handle { width: 40px; height: 5px; background: #cbd5e1; border-radius: 10px; margin: 0 auto; }
+        
+        .sheet-header { padding: 5px 20px 15px; border-bottom: 1px solid #f1f5f9; position: relative; }
+        .sheet-content { overflow-y: auto; padding: 0; flex-grow: 1; overscroll-behavior: contain; padding-bottom: 80px; }
+        .sheet-close { position: absolute; top: 15px; right: 15px; background: #f1f5f9; border: none; width: 30px; height: 30px; border-radius: 50%; color: #64748b; z-index: 10; }
+
+        #lines-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.98); z-index: 1500; padding: 20px; display: none; flex-direction: column; }
+        #lines-panel.show { display: flex; }
+        .lines-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; overflow-y: auto; padding-bottom: 80px; }
+        .line-chip { border: 2px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; transition: all 0.2s; opacity: 0.6; filter: grayscale(1); }
+        .line-chip.active { border-color: var(--primary); opacity: 1; filter: none; background: #fff0f7; }
+        .line-num { display: block; font-weight: 800; font-size: 16px; margin-bottom: 2px; }
+
+        .route-form { background: white; padding: 20px; border-radius: 0 0 20px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .route-card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .route-timeline { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 15px; padding-bottom: 20px; position: relative; }
+        .route-timeline::before { content: ''; position: absolute; left: -6px; top: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+
+        .bus-marker { width: 34px; height: 34px; border-radius: 50%; border: 2px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 12px; }
+        .bus-marker::after { content:''; position: absolute; bottom: -5px; border-top: 6px solid white; border-left: 5px solid transparent; border-right: 5px solid transparent; }
+        
+        .stop-icon-div { background: white; border-radius: 50%; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 2px solid #007bff; color: #007bff; font-size: 10px; }
+        .marker-start { color: #27ae60; font-size: 24px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+        .marker-end { color: #c0392b; font-size: 24px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+    </style>
+</head>
+<body>
+
+<div id="view-container">
+    <div id="view-map" class="view active">
+        <div class="map-controls">
+            <button class="control-btn" onclick="toggleLinesPanel()"><i class="fas fa-filter"></i></button>
+            <button class="control-btn" onclick="locateUser()"><i class="fas fa-location-arrow"></i></button>
+        </div>
+        <div id="map"></div>
+        
+        <div id="lines-panel">
+            <h4 class="mb-3 fw-bold">Configuration</h4>
+            <div class="p-3 bg-light rounded-3 mb-4 d-flex justify-content-between align-items-center border">
+                <div class="fw-bold"><i class="fas fa-map-marker-alt me-2 text-primary"></i>Afficher les arrêts</div>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" id="check-stops" style="width: 3em; height: 1.5em;" onchange="toggleStops(this.checked)">
+                </div>
+            </div>
+            <h5 class="mb-3 fw-bold">Filtrer les lignes</h5>
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-dark btn-sm flex-grow-1" onclick="selectAllLines(true)">Tout voir</button>
+                <button class="btn btn-outline-dark btn-sm flex-grow-1" onclick="selectAllLines(false)">Tout masquer</button>
+            </div>
+            <div class="lines-grid" id="lines-grid"></div>
+            <button class="btn btn-primary w-100 mt-3 p-3 rounded-4 fw-bold" onclick="toggleLinesPanel()">Valider</button>
+        </div>
+    </div>
+
+    <div id="view-route" class="view">
+        <div class="route-form">
+            <h3 class="fw-bold mb-3">Itinéraire</h3>
+            <input type="text" id="start-input" class="form-control mb-2 p-3 bg-light border-0 rounded-3" placeholder="Départ (Arrêt)" list="stops-list">
+            <input type="text" id="end-input" class="form-control mb-3 p-3 bg-light border-0 rounded-3" placeholder="Arrivée (Arrêt)" list="stops-list">
+            <button class="btn btn-primary w-100 p-3 rounded-4 fw-bold" onclick="searchItinerary()">Rechercher</button>
+        </div>
+        <div id="route-results" class="p-3 overflow-auto">
+            <div class="text-center text-muted mt-5"><i class="fas fa-search fa-3x mb-3 opacity-25"></i><br>Entrez deux arrêts pour trouver un bus</div>
+        </div>
+    </div>
+</div>
+
+<nav id="bottom-nav">
+    <button class="nav-item active" onclick="changeView('map')"><i class="fas fa-map"></i> Carte</button>
+    <button class="nav-item" onclick="changeView('route')"><i class="fas fa-route"></i> Itinéraire</button>
+</nav>
+
+<div id="sheet" class="hidden">
+    <div class="sheet-drag-area" id="sheet-drag">
+        <div class="sheet-handle"></div>
+    </div>
+    <div class="sheet-header">
+        <button class="sheet-close" onclick="closeSheetFull()"><i class="fas fa-times"></i></button>
+        <h4 id="sheet-title" class="fw-bold m-0 mt-2">Détails</h4>
+        <small id="sheet-subtitle" class="text-muted">Info</small>
+    </div>
+    <div id="sheet-content" class="sheet-content"></div>
+</div>
+
+<datalist id="stops-list"></datalist>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let DB = null;
+    let map = L.map('map', {zoomControl: false}).setView([50.3705, 3.0900], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom: 19}).addTo(map);
+    
+    // Fermer panneau si click carte
+    map.on('click', (e) => {
+        if (e.originalEvent.target.classList.contains('leaflet-container')) {
+            clearSelection();
+        }
+    });
+
+    let state = {
+        visibleLines: new Set(),
+        showStops: false,
+        markers: {}, 
+        stopMarkers: L.layerGroup(),
+        routeLine: null,
+        startMarker: null,
+        endMarker: null,
+        tripLine: null
+    };
+
+    // --- GESTION DU SWIPE (BottomSheet) ---
+    const sheet = document.getElementById('sheet');
+    const dragArea = document.getElementById('sheet-drag');
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
+    let sheetHeight = 0;
+
+    dragArea.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+        sheetHeight = sheet.offsetHeight;
+        isDragging = true;
+        sheet.style.transition = 'none'; // Désactiver animation pendant le drag
+    }, {passive: true});
+
+    dragArea.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY;
+        const delta = currentY - startY;
+        
+        // Si on glisse vers le bas, on applique la transfo
+        if (delta > 0) {
+            // ne pas dépasser 100%
+             sheet.style.transform = `translateY(${delta}px)`;
+        }
+    }, {passive: true});
+
+    dragArea.addEventListener('touchend', (e) => {
+        isDragging = false;
+        sheet.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'; // Réactiver anim
+        const delta = currentY - startY;
+        
+        if (delta > 100) {
+            // Si on a glissé de plus de 100px vers le bas -> Mode Peek (Réduit)
+            minimizeSheet();
+        } else {
+            // Sinon on remet en haut (Ouvert)
+            openSheet();
+        }
+        sheet.style.transform = ''; // Nettoyer le style inline
+    });
+
+    // Fonctions d'état du panneau
+    function openSheet() {
+        sheet.classList.remove('hidden', 'peek');
+        sheet.classList.add('open');
+    }
+    
+    function minimizeSheet() {
+        // Mode réduit : on voit juste le titre
+        sheet.classList.remove('hidden', 'open');
+        sheet.classList.add('peek');
+    }
+
+    // Fermeture complète (Croix)
+    function closeSheetFull() {
+        sheet.classList.remove('open', 'peek');
+        sheet.classList.add('hidden');
+        // Optionnel : on peut aussi effacer la sélection ici si tu veux
+        if(state.tripLine) { map.removeLayer(state.tripLine); state.tripLine=null; }
+    }
+
+    // --- INITIALISATION ---
+    async function init() {
+        try {
+            const r = await fetch('static/db.json');
+            DB = await r.json();
+            
+            const grid = document.getElementById('lines-grid');
+            Object.keys(DB.routes).forEach(rid => {
+                const route = DB.routes[rid];
+                const el = document.createElement('div');
+                el.className = 'line-chip';
+                el.innerHTML = `<span class="line-num" style="color:#${route.tc}">${route.n}</span>`;
+                el.style.backgroundColor = "#" + route.c;
+                el.onclick = () => toggleLineFilter(rid, el);
+                el.id = `filter-${rid}`;
+                grid.appendChild(el);
+            });
+
+            const dl = document.getElementById('stops-list');
+            Object.values(DB.stops).forEach(s => {
+                let opt = document.createElement('option'); opt.value = s.n; dl.appendChild(opt);
+            });
+
+            setInterval(updateLoop, 1000);
+        } catch(e) { console.error(e); }
+    }
+
+    function clearSelection() {
+        closeSheetFull();
+        if(state.tripLine) { map.removeLayer(state.tripLine); state.tripLine=null; }
+        if(state.routeLine) { map.removeLayer(state.routeLine); state.routeLine=null; }
+        if(state.startMarker) { map.removeLayer(state.startMarker); state.startMarker=null; }
+        if(state.endMarker) { map.removeLayer(state.endMarker); state.endMarker=null; }
+    }
+
+    function getParisTime() {
+        const d = new Date();
+        const paris = new Date(d.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+        return paris.getHours()*3600 + paris.getMinutes()*60 + paris.getSeconds();
+    }
+
+    function isTripActive(trip) {
+        const cal = DB.calendar[trip.sid];
+        if(!cal) return false;
+        const d = new Date();
+        const paris = new Date(d.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+        const ymd = parseInt(paris.getFullYear() + String(paris.getMonth()+1).padStart(2,'0') + String(paris.getDate()).padStart(2,'0'));
+        if(ymd < cal.s || ymd > cal.e) return false;
+        let day = paris.getDay() - 1; if(day === -1) day = 6;
+        return cal.d[day] === 1;
+    }
+
+    function updateLoop() {
+        if(!DB) return;
+        const now = getParisTime();
+        const activeIds = [];
+
+        DB.trips.forEach(trip => {
+            if(!state.visibleLines.has(trip.rid)) return;
+            if(!isTripActive(trip)) return;
+
+            const stops = trip.sch;
+            const first = stops[0][1];
+            const last = stops[stops.length-1][1];
+
+            if(now >= first && now <= last) {
+                let pIdx = -1;
+                for(let i=0; i<stops.length-1; i++) {
+                    if(now >= stops[i][1] && now <= stops[i+1][1]) { pIdx = i; break; }
+                }
+
+                if(pIdx !== -1) {
+                    const prev = stops[pIdx], next = stops[pIdx+1];
+                    const pStop = DB.stops[prev[0]], nStop = DB.stops[next[0]];
+                    const pct = (now - prev[1]) / (next[1] - prev[1]);
+                    const lat = pStop.lat + (nStop.lat - pStop.lat) * pct;
+                    const lon = pStop.lon + (nStop.lon - pStop.lon) * pct;
+
+                    updateBusMarker(trip, lat, lon);
+                    activeIds.push(trip.id);
+                }
+            }
+        });
+
+        Object.keys(state.markers).forEach(tid => {
+            if(!activeIds.includes(tid)) { map.removeLayer(state.markers[tid]); delete state.markers[tid]; }
+        });
+    }
+
+    function updateBusMarker(trip, lat, lon) {
+        const r = DB.routes[trip.rid];
+        if(state.markers[trip.id]) {
+            state.markers[trip.id].setLatLng([lat, lon]);
+        } else {
+            const icon = L.divIcon({
+                className: 'custom-bus-icon',
+                html: `<div class="bus-marker" style="background:#${r.c}; color:#${r.tc}">${r.n}</div>`,
+                iconSize: [34,34], iconAnchor: [17,34]
+            });
+            const m = L.marker([lat, lon], {icon: icon}).addTo(map);
+            m.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+                showTripDetails(trip);
+            });
+            state.markers[trip.id] = m;
+        }
+    }
+
+    function renderStops() {
+        state.stopMarkers.clearLayers();
+        if(!state.showStops) return;
+
+        const stopsToShow = new Set();
+        state.visibleLines.forEach(rid => {
+            (DB.routes[rid].stops || []).forEach(sid => stopsToShow.add(sid));
+        });
+
+        stopsToShow.forEach(sid => {
+            const s = DB.stops[sid];
+            const icon = L.divIcon({
+                className: 'custom-stop',
+                html: `<div class="stop-icon-div"><i class="fas fa-bus"></i></div>`,
+                iconSize: [22,22], iconAnchor: [11,11]
+            });
+            const m = L.marker([s.lat, s.lon], {icon: icon});
+            m.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+                showStopDetails(sid);
+            });
+            state.stopMarkers.addLayer(m);
+        });
+        state.stopMarkers.addTo(map);
+    }
+
+    function showItineraryOnMap(item) {
+        changeView('map');
+        closeSheetFull();
+        if(state.routeLine) map.removeLayer(state.routeLine);
+        if(state.startMarker) map.removeLayer(state.startMarker);
+        if(state.endMarker) map.removeLayer(state.endMarker);
+
+        const segmentStops = item.trip.sch.slice(item.idxS, item.idxE + 1);
+        const latlngs = segmentStops.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+
+        state.routeLine = L.polyline(latlngs, {color: '#2ecc71', weight: 6}).addTo(map);
+        map.fitBounds(state.routeLine.getBounds(), {padding: [50,50]});
+
+        const startLL = latlngs[0];
+        const endLL = latlngs[latlngs.length-1];
+
+        state.startMarker = L.marker(startLL, {
+            icon: L.divIcon({className:'x', html:'<i class="fas fa-play-circle marker-start"></i>', iconSize:[24,24], iconAnchor:[12,12]})
+        }).addTo(map);
+
+        state.endMarker = L.marker(endLL, {
+            icon: L.divIcon({className:'x', html:'<i class="fas fa-flag-checkered marker-end"></i>', iconSize:[24,24], iconAnchor:[2,22]})
+        }).addTo(map);
+        
+        if(!state.visibleLines.has(item.trip.rid)) {
+            toggleLineFilter(item.trip.rid, document.getElementById(`filter-${item.trip.rid}`));
+        }
+    }
+
+    function showTripDetails(trip) {
+        if(state.tripLine) map.removeLayer(state.tripLine);
+        const coords = trip.sch.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+        const r = DB.routes[trip.rid];
+        state.tripLine = L.polyline(coords, {color: `#${r.c}`, weight: 4, opacity: 0.8, dashArray: '10, 10'}).addTo(map);
+        showTripDetailsId(trip.id);
+        openSheet(); // Ouvre en grand par défaut
+    }
+
+    function searchItinerary() {
+        const sName = document.getElementById('start-input').value.toLowerCase();
+        const eName = document.getElementById('end-input').value.toLowerCase();
+        const resDiv = document.getElementById('route-results');
+        resDiv.innerHTML = "";
+        let sIds = [], eIds = [];
+        Object.keys(DB.stops).forEach(sid => {
+            const n = DB.stops[sid].n.toLowerCase();
+            if(n === sName) sIds.push(sid);
+            if(n === eName) eIds.push(sid);
+        });
+        if(!sIds.length || !eIds.length) { resDiv.innerHTML = "<div class='text-center mt-3'>Arrêts introuvables</div>"; return; }
+        const now = getParisTime();
+        const results = [];
+        DB.trips.forEach(trip => {
+            if(!isTripActive(trip)) return;
+            let idxS = -1, idxE = -1;
+            trip.sch.forEach((stop, i) => {
+                if(sIds.includes(stop[0])) idxS = i;
+                if(eIds.includes(stop[0]) && idxS !== -1) idxE = i;
+            });
+            if(idxS !== -1 && idxE !== -1 && idxE > idxS) {
+                const depTime = trip.sch[idxS][1];
+                if(depTime > now && depTime < now + 7200) results.push({ trip, idxS, idxE, depTime });
+            }
+        });
+        results.sort((a,b) => a.depTime - b.depTime);
+        const uniqueRes = results.slice(0, 10);
+        if(uniqueRes.length === 0) { resDiv.innerHTML = "<div class='text-center mt-3'>Aucun bus trouvé prochainement.</div>"; return; }
+        uniqueRes.forEach(item => {
+            const r = DB.routes[item.trip.rid];
+            const arrTime = item.trip.sch[item.idxE][1];
+            const depStr = new Date(item.depTime * 1000).toISOString().substr(11,5);
+            const arrStr = new Date(arrTime * 1000).toISOString().substr(11,5);
+            const card = document.createElement('div');
+            card.className = "route-card";
+            card.innerHTML = `<div><span class="badge" style="background:#${r.c}; color:#${r.tc}">${r.n}</span><strong class="ms-2">Vers ${item.trip.head}</strong><div class="small text-muted mt-1">Départ ${depStr} &rarr; Arrivée ${arrStr}</div></div><i class="fas fa-chevron-right text-muted"></i>`;
+            card.onclick = () => showItineraryOnMap(item);
+            resDiv.appendChild(card);
+        });
+    }
+
+    function showStopDetails(sid) {
+        const s = DB.stops[sid];
+        document.getElementById('sheet-title').innerText = s.n;
+        document.getElementById('sheet-subtitle').innerText = "Prochains passages";
+        const content = document.getElementById('sheet-content');
+        content.innerHTML = "<ul class='list-group list-group-flush'>";
+        const now = getParisTime();
+        const passages = [];
+        DB.trips.forEach(trip => {
+            if(!isTripActive(trip)) return;
+            trip.sch.forEach(stop => {
+                if(stop[0] === sid && stop[1] > now && stop[1] < now + 3600) passages.push({ t: stop[1], trip });
+            });
+        });
+        passages.sort((a,b) => a.t - b.t);
+        if(passages.length === 0) content.innerHTML += "<li class='list-group-item text-muted'>Aucun passage dans l'heure.</li>";
+        passages.slice(0, 10).forEach(p => {
+            const r = DB.routes[p.trip.rid];
+            const time = new Date(p.t * 1000).toISOString().substr(11,5);
+            const wait = Math.floor((p.t - now)/60);
+            content.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center" onclick="showTripDetailsId('${p.trip.id}')"><div><span class="badge me-2" style="background:#${r.c}; color:#${r.tc}">${r.n}</span><span class="small fw-bold">${p.trip.head}</span></div><div class="text-end"><div class="fw-bold">${time}</div><div class="small text-muted">${wait} min</div></div></li>`;
+        });
+        content.innerHTML += "</ul>";
+        openSheet();
+    }
+
+    function showTripDetailsId(tid) {
+        const trip = DB.trips.find(t => t.id === tid);
+        if(!trip) return;
+        const r = DB.routes[trip.rid];
+        document.getElementById('sheet-title').innerText = `Ligne ${r.n}`;
+        document.getElementById('sheet-subtitle').innerText = `Vers ${trip.head}`;
+        const content = document.getElementById('sheet-content');
+        content.innerHTML = "<div class='route-timeline mt-3'>";
+        const now = getParisTime();
+        trip.sch.forEach(stop => {
+            const sName = DB.stops[stop[0]].n;
+            const time = new Date(stop[1] * 1000).toISOString().substr(11,5);
+            const isPast = stop[1] < now;
+            const style = isPast ? 'opacity:0.5' : 'font-weight:bold';
+            content.innerHTML += `<div class="mb-3 ms-3" style="${style}"><div>${time}</div><div class="small">${sName}</div></div>`;
+        });
+        content.innerHTML += "</div>";
+        openSheet();
+        
+        if(state.tripLine) map.removeLayer(state.tripLine);
+        const coords = trip.sch.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+        state.tripLine = L.polyline(coords, {color: `#${r.c}`, weight: 4, opacity: 0.8, dashArray: '10, 10'}).addTo(map);
+    }
+    
+    function changeView(v) {
+        document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
+        document.getElementById('view-'+v).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        if(v==='map') map.invalidateSize();
+    }
+    function toggleLinesPanel() { document.getElementById('lines-panel').classList.toggle('show'); }
+    function toggleStops(checked) { state.showStops = checked; renderStops(); }
+    function toggleLineFilter(rid, el) {
+        if(state.visibleLines.has(rid)) { state.visibleLines.delete(rid); el.classList.remove('active'); }
+        else { state.visibleLines.add(rid); el.classList.add('active'); }
+        renderStops();
+    }
+    function selectAllLines(all) {
+        document.querySelectorAll('.line-chip').forEach(el => {
+            const rid = el.id.replace('filter-', '');
+            if(all) { state.visibleLines.add(rid); el.classList.add('active'); }
+            else { state.visibleLines.delete(rid); el.classList.remove('active'); }
+        });
+        renderStops();
+    }
+    function locateUser() {
+        map.locate({setView: true, maxZoom: 15});
+        map.on('locationfound', e => { L.circle(e.latlng, {radius: 20, color: 'blue'}).addTo(map); });
+    }
+    if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    init();
+</script>
+</body>
+</html>
