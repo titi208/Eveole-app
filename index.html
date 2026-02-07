@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Évéole App</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="static/icon.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        :root { --primary: #E2007A; --bg: #f8f9fa; --surface: #ffffff; --text: #1e293b; --nav-height: 70px; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        
+        #view-container { flex-grow: 1; position: relative; overflow: hidden; }
+        .view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; background: var(--bg); }
+        .view.active { display: flex; }
+        #map { width: 100%; height: 100%; z-index: 1; }
+
+        /* Nav */
+        #bottom-nav { height: var(--nav-height); background: var(--surface); border-top: 1px solid #e2e8f0; display: flex; justify-content: space-around; align-items: center; z-index: 2000; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 11px; font-weight: 600; text-decoration: none; width: 100%; height: 100%; background: none; border: none; }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; }
+        .nav-item.active { color: var(--primary); }
+
+        /* Controls */
+        .map-controls { position: absolute; top: 15px; right: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+        .control-btn { width: 44px; height: 44px; background: white; border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: var(--text); font-size: 18px; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; cursor: pointer; }
+        .control-btn:active { transform: scale(0.95); }
+        .control-btn.active { background: var(--primary); color: white; }
+        .btn-clear { background: #ff4757; color: white; margin-top: 10px; box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4); }
+        .btn-clear:hover { background: #ff6b81; }
+
+        /* Sheet */
+        #sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 20px 20px 0 0; box-shadow: 0 -5px 40px rgba(0,0,0,0.2); z-index: 3000; display: flex; flex-direction: column; transform: translateY(110%); transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); height: 75vh; touch-action: none; }
+        #sheet.open { transform: translateY(0); }
+        #sheet.peek { transform: translateY(calc(100% - 130px)); }
+        #sheet.hidden { transform: translateY(110%); }
+        .sheet-header-area { padding: 15px 0 10px; cursor: grab; background: var(--surface); border-radius: 20px 20px 0 0; position: relative; z-index: 20; }
+        .sheet-handle { width: 50px; height: 6px; background: #cbd5e1; border-radius: 10px; margin: 0 auto 10px; }
+        .sheet-header-content { padding: 0 20px 10px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
+        .sheet-content { overflow-y: auto; padding: 0; flex-grow: 1; overscroll-behavior: contain; padding-bottom: 80px; touch-action: pan-y; }
+        .sheet-close { background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; color: #64748b; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 10px;}
+
+        /* Filtres */
+        #lines-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.98); z-index: 1500; padding: 20px; display: none; flex-direction: column; }
+        #lines-panel.show { display: flex; }
+        .lines-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; overflow-y: auto; padding-bottom: 80px; }
+        .line-chip { border: 2px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; transition: all 0.2s; opacity: 0.6; filter: grayscale(1); }
+        .line-chip.active { border-color: var(--primary); opacity: 1; filter: none; background: #fff0f7; }
+        .line-num { display: block; font-weight: 800; font-size: 16px; margin-bottom: 2px; }
+
+        /* Itinéraire */
+        .route-form { background: white; padding: 20px; border-radius: 0 0 20px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .input-group-loc { position: relative; }
+        .btn-loc-input { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary); font-size: 18px; cursor: pointer; }
+        .route-card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #f1f5f9; cursor: pointer; transition: background 0.2s; }
+        .route-card:active { background: #f8f9fa; }
+        .route-timeline { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 15px; padding-bottom: 20px; position: relative; }
+        .route-timeline::before { content: ''; position: absolute; left: -6px; top: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+        
+        /* Markers */
+        .bus-marker-container { transition: all 1s linear; }
+        .bus-marker { width: 34px; height: 34px; border-radius: 50%; border: 2px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 12px; }
+        .bus-marker::after { content:''; position: absolute; bottom: -5px; border-top: 6px solid white; border-left: 5px solid transparent; border-right: 5px solid transparent; }
+        .stop-icon-div { background: white; border-radius: 50%; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 2px solid #007bff; color: #007bff; font-size: 10px; }
+        .marker-start { color: #27ae60; font-size: 24px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+        .marker-end { color: #c0392b; font-size: 24px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+        
+        .badge-transfer { background: #34495e; color: white; font-size: 11px; padding: 3px 6px; border-radius: 4px; margin: 0 2px; }
+    </style>
+</head>
+<body>
+
+<div id="view-container">
+    <div id="view-map" class="view active">
+        <div class="map-controls">
+            <button class="control-btn" onclick="toggleLinesPanel()"><i class="fas fa-filter"></i></button>
+            <button class="control-btn" onclick="locateUser()"><i class="fas fa-location-arrow"></i></button>
+            <button class="control-btn btn-clear" onclick="clearSelection()"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="map"></div>
+        <div id="lines-panel">
+            <h4 class="mb-3 fw-bold">Configuration</h4>
+            <div class="p-3 bg-light rounded-3 mb-4 d-flex justify-content-between align-items-center border">
+                <div class="fw-bold"><i class="fas fa-map-marker-alt me-2 text-primary"></i>Afficher les arrêts</div>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" id="check-stops" style="width: 3em; height: 1.5em;" onchange="toggleStops(this.checked)">
+                </div>
+            </div>
+            <h5 class="mb-3 fw-bold">Filtrer les lignes</h5>
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-dark btn-sm flex-grow-1" onclick="selectAllLines(true)">Tout voir</button>
+                <button class="btn btn-outline-dark btn-sm flex-grow-1" onclick="selectAllLines(false)">Tout masquer</button>
+            </div>
+            <div class="lines-grid" id="lines-grid"></div>
+            <button class="btn btn-primary w-100 mt-3 p-3 rounded-4 fw-bold" onclick="toggleLinesPanel()">Valider</button>
+        </div>
+    </div>
+
+    <div id="view-route" class="view">
+        <div class="route-form">
+            <h3 class="fw-bold mb-3">Itinéraire</h3>
+            <div class="input-group-loc mb-2">
+                <input type="text" id="start-input" class="form-control p-3 bg-light border-0 rounded-3" placeholder="Départ" list="stops-list">
+                <button class="btn-loc-input" onclick="useCurrentLocation('start')"><i class="fas fa-crosshairs"></i></button>
+            </div>
+            <div class="input-group-loc mb-3">
+                <input type="text" id="end-input" class="form-control p-3 bg-light border-0 rounded-3" placeholder="Arrivée" list="stops-list">
+            </div>
+            <button class="btn btn-primary w-100 p-3 rounded-4 fw-bold" onclick="searchItinerary()">Rechercher</button>
+        </div>
+        <div id="route-results" class="p-3 overflow-auto">
+            <div class="text-center text-muted mt-5"><i class="fas fa-search fa-3x mb-3 opacity-25"></i><br>Entrez deux arrêts.</div>
+        </div>
+    </div>
+</div>
+
+<nav id="bottom-nav">
+    <button class="nav-item active" onclick="changeView('map')"><i class="fas fa-map"></i> Carte</button>
+    <button class="nav-item" onclick="changeView('route')"><i class="fas fa-route"></i> Itinéraire</button>
+</nav>
+
+<div id="sheet" class="hidden">
+    <div class="sheet-header-area" id="sheet-header-area">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header-content">
+            <div><h4 id="sheet-title" class="fw-bold m-0">Détails</h4><small id="sheet-subtitle" class="text-muted">Info</small></div>
+            <button class="sheet-close" onclick="closeSheetFull(event)"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+    <div id="sheet-content" class="sheet-content"></div>
+</div>
+
+<datalist id="stops-list"></datalist>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let DB = null;
+    let map = L.map('map', {zoomControl: false}).setView([50.3705, 3.0900], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom: 19}).addTo(map);
+    
+    map.on('click', (e) => {
+        if (e.originalEvent.target.classList.contains('leaflet-container')) {
+             if(state.sheetState === 'open') setSheetState('peek');
+        }
+    });
+
+    let state = { visibleLines: new Set(), showStops: false, markers: {}, stopMarkers: L.layerGroup(), routeLayers: L.layerGroup().addTo(map), tripLine: null, sheetState: 'hidden', userLoc: null };
+    const sheet = document.getElementById('sheet'); const headerArea = document.getElementById('sheet-header-area'); let startY=0; let currentY=0; let isDragging=false; let dragStartTime=0;
+
+    headerArea.addEventListener('click', (e) => { if(e.target.closest('.sheet-close')) return; if(isDragging) return; toggleSheetState(); });
+    headerArea.addEventListener('touchstart', (e) => { startY=e.touches[0].clientY; isDragging=true; dragStartTime=Date.now(); sheet.style.transition='none'; }, {passive:false});
+    headerArea.addEventListener('touchmove', (e) => { if(!isDragging) return; if(e.cancelable) e.preventDefault(); currentY=e.touches[0].clientY; const delta=currentY-startY; if(state.sheetState==='open' && delta>0) sheet.style.transform=`translateY(${delta}px)`; }, {passive:false});
+    headerArea.addEventListener('touchend', (e) => { isDragging=false; sheet.style.transition='transform 0.35s'; const delta=currentY-startY; const time=Date.now()-dragStartTime; if(time<200 && Math.abs(delta)<10) { sheet.style.transform=''; return; } if(state.sheetState==='open') { if(delta>100) setSheetState('peek'); else setSheetState('open'); } else if(state.sheetState==='peek') { if(delta<-50) setSheetState('open'); else setSheetState('peek'); } sheet.style.transform=''; });
+    function setSheetState(n) { state.sheetState=n; sheet.className=''; sheet.classList.add(n); }
+    function toggleSheetState() { if(state.sheetState==='open') setSheetState('peek'); else setSheetState('open'); }
+    function closeSheetFull(e) { if(e) e.stopPropagation(); setSheetState('hidden'); }
+    function clearSelection() { closeSheetFull(); state.routeLayers.clearLayers(); if(state.tripLine) { map.removeLayer(state.tripLine); state.tripLine=null; } }
+
+    async function init() {
+        try {
+            const r = await fetch('static/db.json'); DB = await r.json();
+            const grid = document.getElementById('lines-grid');
+            Object.keys(DB.routes).forEach(rid => {
+                const route = DB.routes[rid]; const el = document.createElement('div');
+                el.className = 'line-chip active'; el.innerHTML = `<span class="line-num" style="color:#${route.tc}">${route.n}</span>`; el.style.backgroundColor = "#" + route.c;
+                el.onclick = () => toggleLineFilter(rid, el); el.id = `filter-${rid}`; grid.appendChild(el); state.visibleLines.add(rid);
+            });
+            const uniqueNames = new Set(); Object.values(DB.stops).forEach(s => uniqueNames.add(s.n));
+            const dl = document.getElementById('stops-list'); Array.from(uniqueNames).sort().forEach(n => { let opt = document.createElement('option'); opt.value = n; dl.appendChild(opt); });
+            setInterval(updateLoop, 2000); updateLoop();
+        } catch(e) { console.error("Erreur DB:", e); }
+    }
+
+    function getParisTime() { const d = new Date(); const paris = new Date(d.toLocaleString("en-US", {timeZone: "Europe/Paris"})); return paris.getHours()*3600 + paris.getMinutes()*60 + paris.getSeconds(); }
+    function isTripActive(trip) { const cal = DB.calendar[trip.sid]; if(!cal) return false; const d = new Date(); const paris = new Date(d.toLocaleString("en-US", {timeZone: "Europe/Paris"})); const ymd = parseInt(paris.getFullYear() + String(paris.getMonth()+1).padStart(2,'0') + String(paris.getDate()).padStart(2,'0')); if(ymd < cal.s || ymd > cal.e) return false; let day = paris.getDay() - 1; if(day === -1) day = 6; return cal.d[day] === 1; }
+
+    function updateLoop() {
+        if(!DB) return; const now = getParisTime(); const activeIds = []; const bounds = map.getBounds();
+        DB.trips.forEach(trip => {
+            if(!state.visibleLines.has(trip.rid)) return; if(!isTripActive(trip)) return;
+            const stops = trip.sch;
+            if(now >= stops[0][1] && now <= stops[stops.length-1][1]) {
+                let pIdx = -1; for(let i=0; i<stops.length-1; i++) { if(now >= stops[i][1] && now <= stops[i+1][1]) { pIdx = i; break; } }
+                if(pIdx !== -1) {
+                    const prev = stops[pIdx], next = stops[pIdx+1]; const pStop = DB.stops[prev[0]], nStop = DB.stops[next[0]];
+                    const pct = (now - prev[1]) / (next[1] - prev[1]);
+                    const lat = pStop.lat + (nStop.lat - pStop.lat) * pct; const lon = pStop.lon + (nStop.lon - pStop.lon) * pct;
+                    if(bounds.contains([lat, lon])) { updateBusMarker(trip, lat, lon); activeIds.push(trip.id); }
+                }
+            }
+        });
+        Object.keys(state.markers).forEach(tid => { if(!activeIds.includes(tid)) { map.removeLayer(state.markers[tid]); delete state.markers[tid]; } });
+    }
+
+    function updateBusMarker(trip, lat, lon) {
+        const r = DB.routes[trip.rid];
+        if(state.markers[trip.id]) { state.markers[trip.id].setLatLng([lat, lon]); } else {
+            const icon = L.divIcon({ className: 'bus-marker-container', html: `<div class="bus-marker" style="background:#${r.c}; color:#${r.tc}">${r.n}</div>`, iconSize: [34,34], iconAnchor: [17,34] });
+            const m = L.marker([lat, lon], {icon: icon}).addTo(map);
+            m.on('click', (e) => { L.DomEvent.stopPropagation(e); showTripDetails(trip); });
+            state.markers[trip.id] = m;
+        }
+    }
+
+    // --- GEOLOCALISATION CORRIGEE (TROUVE L'ARRET TOUT DE SUITE) ---
+    function useCurrentLocation(targetId) {
+        const input = document.getElementById(targetId+'-input');
+        input.value = "Localisation...";
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                state.userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                // On cherche tout de suite le plus proche
+                let nearest = null, minDist = Infinity;
+                Object.values(DB.stops).forEach(s => {
+                    const d = Math.sqrt(Math.pow(s.lat - state.userLoc.lat, 2) + Math.pow(s.lon - state.userLoc.lon, 2));
+                    if(d < minDist) { minDist = d; nearest = s; }
+                });
+                if(nearest) {
+                    // On remplit le champ avec le VRAI nom
+                    input.value = nearest.n + " (Ma position)";
+                } else {
+                    input.value = "Ma position";
+                }
+            }, (e) => { input.value = ""; alert("Erreur GPS : " + e.message); });
+        } else { alert("GPS non supporté"); }
+    }
+    function locateUser() { map.locate({setView: true, maxZoom: 15}); map.on('locationfound', e => { state.userLoc = { lat: e.latlng.lat, lon: e.latlng.lng }; L.circle(e.latlng, {radius: 20, color: 'blue'}).addTo(map); }); }
+
+    function getStopIdsByName(nameInput) {
+        if(!nameInput) return [];
+        // On nettoie : enlève "(Ma position)" si présent
+        let clean = nameInput.replace(" (Ma position)", "").toLowerCase().trim();
+        return Object.keys(DB.stops).filter(id => DB.stops[id].n.toLowerCase() === clean);
+    }
+
+    // --- RECHERCHE AVEC CORRESPONDANCE (Transferts) ---
+    function searchItinerary() {
+        const sVal = document.getElementById('start-input').value;
+        const eVal = document.getElementById('end-input').value;
+        const resDiv = document.getElementById('route-results');
+        resDiv.innerHTML = "";
+        
+        const startIds = getStopIdsByName(sVal);
+        const endIds = getStopIdsByName(eVal);
+
+        if(startIds.length === 0 || endIds.length === 0) { resDiv.innerHTML = "<div class='text-center mt-3 text-danger'>Arrêts introuvables.</div>"; return; }
+
+        const now = getParisTime();
+        let results = [];
+
+        // 1. RECHERCHE DIRECTE
+        DB.trips.forEach(trip => {
+            if(!isTripActive(trip)) return;
+            let idxS = -1, idxE = -1;
+            trip.sch.forEach((stop, i) => {
+                if(idxS === -1 && startIds.includes(stop[0])) idxS = i;
+                if(idxS !== -1 && endIds.includes(stop[0]) && i > idxS) idxE = i;
+            });
+            if(idxS !== -1 && idxE !== -1) {
+                const depTime = trip.sch[idxS][1];
+                if(depTime > now && depTime < now + 7200) results.push({ type: 'direct', trip, idxS, idxE, depTime });
+            }
+        });
+
+        // 2. RECHERCHE CORRESPONDANCE (Si peu de résultats directs)
+        if(results.length < 3) {
+            // Pour faire simple et rapide : on cherche un point commun entre les lignes de départ et d'arrivée
+            // A. Trouver les lignes qui passent par Départ
+            const startRoutes = new Set();
+            const startTripsByRoute = {}; // rid -> [trips]
+            
+            DB.trips.forEach(t => {
+                if(!isTripActive(t)) return;
+                // Passe par start ?
+                const idx = t.sch.findIndex(s => startIds.includes(s[0]));
+                if(idx !== -1 && t.sch[idx][1] > now && t.sch[idx][1] < now + 5400) { // 1h30 max d'attente
+                    startRoutes.add(t.rid);
+                    if(!startTripsByRoute[t.rid]) startTripsByRoute[t.rid] = [];
+                    startTripsByRoute[t.rid].push({t, idx});
+                }
+            });
+
+            // B. Trouver les lignes qui passent par Arrivée
+            const endRoutes = new Set();
+            const endTripsByRoute = {};
+            DB.trips.forEach(t => {
+                if(!isTripActive(t)) return;
+                const idx = t.sch.findIndex(s => endIds.includes(s[0]));
+                if(idx !== -1) { // L'horaire sera vérifié après
+                    endRoutes.add(t.rid);
+                    if(!endTripsByRoute[t.rid]) endTripsByRoute[t.rid] = [];
+                    endTripsByRoute[t.rid].push({t, idx});
+                }
+            });
+
+            // C. Trouver les Stops communs (Hubs) entre StartRoutes et EndRoutes
+            // Pour chaque RID de départ
+            startRoutes.forEach(ridS => {
+                const routeS = DB.routes[ridS];
+                // Pour chaque RID d'arrivée
+                endRoutes.forEach(ridE => {
+                    if(ridS === ridE) return; // Déjà géré par direct
+
+                    // Intersection des arrêts ?
+                    const stopsS = routeS.stops; 
+                    const stopsE = DB.routes[ridE].stops;
+                    // On cherche un id commun
+                    const hubId = stopsS.find(id => stopsE.includes(id));
+
+                    if(hubId) {
+                        // On a un Hub ! On construit le trajet.
+                        // Trouver un trip S -> Hub
+                        const candidatesS = startTripsByRoute[ridS];
+                        if(!candidatesS) return;
+
+                        candidatesS.forEach(candS => {
+                            // candS = { trip, idx (start) }
+                            // Le trip doit passer par hubId APRES start
+                            const idxHubS = candS.t.sch.findIndex((s, i) => i > candS.idx && s[0] === hubId);
+                            if(idxHubS !== -1) {
+                                const arrivalAtHub = candS.t.sch[idxHubS][1];
+                                
+                                // Trouver un trip Hub -> End qui part APRES arrivalAtHub
+                                const candidatesE = endTripsByRoute[ridE];
+                                if(!candidatesE) return;
+                                
+                                // On cherche le meilleur trip E
+                                const candE = candidatesE.find(c => {
+                                    // Le trip doit passer par Hub (index < End)
+                                    // et son heure au Hub > arrivalAtHub + 120s (marge)
+                                    const idxHubE = c.t.sch.findIndex((s, i) => i < c.idx && s[0] === hubId);
+                                    if(idxHubE !== -1) {
+                                        const depFromHub = c.t.sch[idxHubE][1];
+                                        return depFromHub > arrivalAtHub + 120; // 2 min corresp
+                                    }
+                                    return false;
+                                });
+
+                                if(candE) {
+                                    // On a trouvé une correspondance !
+                                    results.push({
+                                        type: 'transfer',
+                                        depTime: candS.t.sch[candS.idx][1],
+                                        t1: candS.t, idxS1: candS.idx, idxE1: idxHubS,
+                                        t2: candE.t, idxS2: candE.t.sch.findIndex(s=>s[0]===hubId), idxE2: candE.idx,
+                                        hubId: hubId
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+        }
+
+        results.sort((a,b) => a.depTime - b.depTime);
+        const uniqueRes = results.slice(0, 20); // Top 20
+
+        if(uniqueRes.length === 0) { resDiv.innerHTML = "<div class='text-center mt-3'>Aucun trajet trouvé.</div>"; return; }
+
+        uniqueRes.forEach(item => {
+            const card = document.createElement('div');
+            card.className = "route-card";
+
+            if(item.type === 'direct') {
+                const r = DB.routes[item.trip.rid];
+                const depStr = new Date(item.depTime * 1000).toISOString().substr(11,5);
+                const arrStr = new Date(item.trip.sch[item.idxE][1] * 1000).toISOString().substr(11,5);
+                
+                card.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><span class="badge" style="background:#${r.c}; color:#${r.tc}">${r.n}</span><strong class="ms-2">Direct</strong></div>
+                        <div class="text-end fw-bold fs-5">${depStr}</div>
+                    </div>
+                    <div class="small text-muted mt-1">Vers ${item.trip.head} <br> Arrivée ${arrStr}</div>
+                `;
+                card.onclick = () => showDirectMap(item);
+            } else {
+                // Correspondance
+                const r1 = DB.routes[item.t1.rid];
+                const r2 = DB.routes[item.t2.rid];
+                const depStr = new Date(item.depTime * 1000).toISOString().substr(11,5);
+                const arrStr = new Date(item.t2.sch[item.idxE2][1] * 1000).toISOString().substr(11,5);
+                const hubName = DB.stops[item.hubId].n;
+
+                card.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge" style="background:#${r1.c}; color:#${r1.tc}">${r1.n}</span>
+                            <i class="fas fa-chevron-right small mx-1 text-muted"></i>
+                            <span class="badge" style="background:#${r2.c}; color:#${r2.tc}">${r2.n}</span>
+                        </div>
+                        <div class="text-end fw-bold fs-5">${depStr}</div>
+                    </div>
+                    <div class="small text-muted mt-1">
+                        Changement à <strong>${hubName}</strong><br>
+                        Arrivée ${arrStr}
+                    </div>
+                `;
+                card.onclick = () => showTransferMap(item);
+            }
+            resDiv.appendChild(card);
+        });
+    }
+
+    function showDirectMap(item) {
+        changeView('map'); closeSheetFull(); state.routeLayers.clearLayers();
+        const pts = item.trip.sch.slice(item.idxS, item.idxE+1).map(s=>[DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+        const line = L.polyline(pts, {color:'#2ecc71', weight:6}).addTo(state.routeLayers);
+        L.marker(pts[0], {icon:L.divIcon({className:'x',html:'<i class="fas fa-play-circle marker-start"></i>'})}).addTo(state.routeLayers);
+        L.marker(pts[pts.length-1], {icon:L.divIcon({className:'x',html:'<i class="fas fa-flag-checkered marker-end"></i>'})}).addTo(state.routeLayers);
+        map.fitBounds(line.getBounds(), {padding:[50,50]});
+    }
+
+    function showTransferMap(item) {
+        changeView('map'); closeSheetFull(); state.routeLayers.clearLayers();
+        // Leg 1
+        const pts1 = item.t1.sch.slice(item.idxS1, item.idxE1+1).map(s=>[DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+        L.polyline(pts1, {color:'#3498db', weight:6}).addTo(state.routeLayers);
+        // Leg 2
+        const pts2 = item.t2.sch.slice(item.idxS2, item.idxE2+1).map(s=>[DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+        L.polyline(pts2, {color:'#e67e22', weight:6}).addTo(state.routeLayers);
+        
+        L.marker(pts1[0], {icon:L.divIcon({className:'x',html:'<i class="fas fa-play-circle marker-start"></i>'})}).addTo(state.routeLayers);
+        // Hub
+        const hubPt = [DB.stops[item.hubId].lat, DB.stops[item.hubId].lon];
+        L.marker(hubPt, {icon:L.divIcon({className:'x',html:'<i class="fas fa-exchange-alt text-dark bg-white p-1 rounded border"></i>'})}).addTo(state.routeLayers);
+        L.marker(pts2[pts2.length-1], {icon:L.divIcon({className:'x',html:'<i class="fas fa-flag-checkered marker-end"></i>'})}).addTo(state.routeLayers);
+        
+        map.fitBounds(L.latLngBounds(pts1.concat(pts2)), {padding:[50,50]});
+    }
+
+    // --- DETAILS ---
+    function showTripDetails(trip) {
+        if(state.tripLine) map.removeLayer(state.tripLine);
+        const coords = trip.sch.map(s => [DB.stops[s[0]].lat, DB.stops[s[0]].lon]);
+        const r = DB.routes[trip.rid];
+        state.tripLine = L.polyline(coords, {color: `#${r.c}`, weight: 4, opacity: 0.8, dashArray: '10, 10'}).addTo(map);
+        const content = document.getElementById('sheet-content');
+        content.innerHTML = `<div class="p-3 bg-light border-bottom"><strong>Ligne ${r.n}</strong> vers ${trip.head}</div><div class="route-timeline mt-3">`;
+        const now = getParisTime();
+        trip.sch.forEach(stop => {
+            const sName = DB.stops[stop[0]].n; const time = new Date(stop[1] * 1000).toISOString().substr(11,5);
+            content.innerHTML += `<div class="mb-3 ms-3" style="${stop[1]<now ? 'opacity:0.5' : 'font-weight:bold'}"><div>${time}</div><div class="small">${sName}</div></div>`;
+        });
+        content.innerHTML += "</div>";
+        setSheetState('open');
+    }
+    
+    function showStopDetails(sid) {
+        const s = DB.stops[sid]; document.getElementById('sheet-title').innerText = s.n; document.getElementById('sheet-subtitle').innerText = "Prochains passages";
+        const content = document.getElementById('sheet-content'); content.innerHTML = "<ul class='list-group list-group-flush'>";
+        const now = getParisTime(); const passages = [];
+        DB.trips.forEach(trip => {
+            if(!isTripActive(trip)) return;
+            trip.sch.forEach(stop => { if(stop[0] === sid && stop[1] > now && stop[1] < now + 3600) passages.push({ t: stop[1], trip }); });
+        });
+        passages.sort((a,b) => a.t - b.t);
+        if(passages.length === 0) content.innerHTML += "<li class='list-group-item text-muted'>Aucun passage dans l'heure.</li>";
+        passages.slice(0, 10).forEach(p => {
+            const r = DB.routes[p.trip.rid]; const time = new Date(p.t * 1000).toISOString().substr(11,5); const wait = Math.floor((p.t - now)/60);
+            content.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center" onclick="showTripDetails('${p.trip.id}')"><div><span class="badge me-2" style="background:#${r.c}; color:#${r.tc}">${r.n}</span><span class="small fw-bold">${p.trip.head}</span></div><div class="text-end"><div class="fw-bold">${time}</div><div class="small text-muted">${wait} min</div></div></li>`;
+        });
+        content.innerHTML += "</ul>"; setSheetState('open');
+    }
+
+    function changeView(v) { document.querySelectorAll('.view').forEach(e => e.classList.remove('active')); document.getElementById('view-'+v).classList.add('active'); document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active')); event.currentTarget.classList.add('active'); if(v==='map') map.invalidateSize(); }
+    function toggleLinesPanel() { document.getElementById('lines-panel').classList.toggle('show'); }
+    function toggleStops(checked) { state.showStops = checked; renderStops(); }
+    function renderStops() { state.stopMarkers.clearLayers(); if(!state.showStops) return; const stopsToShow = new Set(); state.visibleLines.forEach(rid => { (DB.routes[rid].stops || []).forEach(sid => stopsToShow.add(sid)); }); stopsToShow.forEach(sid => { const s = DB.stops[sid]; const icon = L.divIcon({ className: 'custom-stop', html: `<div class="stop-icon-div"><i class="fas fa-bus"></i></div>`, iconSize: [22,22], iconAnchor: [11,11] }); const m = L.marker([s.lat, s.lon], {icon: icon}); m.on('click', (e) => { L.DomEvent.stopPropagation(e); showStopDetails(sid); }); state.stopMarkers.addLayer(m); }); state.stopMarkers.addTo(map); }
+    function toggleLineFilter(rid, el) { if(state.visibleLines.has(rid)) { state.visibleLines.delete(rid); el.classList.remove('active'); } else { state.visibleLines.add(rid); el.classList.add('active'); } renderStops(); }
+    function selectAllLines(all) { document.querySelectorAll('.line-chip').forEach(el => { const rid = el.id.replace('filter-', ''); if(all) { state.visibleLines.add(rid); el.classList.add('active'); } else { state.visibleLines.delete(rid); el.classList.remove('active'); } }); renderStops(); }
+    function locateUser() { map.locate({setView: true, maxZoom: 15}); map.on('locationfound', e => { state.userLoc = { lat: e.latlng.lat, lon: e.latlng.lng }; L.circle(e.latlng, {radius: 20, color: 'blue'}).addTo(map); }); }
+    if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    init();
+</script>
+</body>
+</html>
